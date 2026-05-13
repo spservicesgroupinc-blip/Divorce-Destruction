@@ -182,12 +182,12 @@ export default function App() {
     <div className="min-h-screen bg-[#FDFCFB] text-[#1A1A1A] flex flex-col font-sans">
       <header className="border-b-4 border-[#1A1A1A] p-6 text-center relative">
         <div className="mb-8">
-          <h2 className="font-sans font-bold tracking-[0.2em] text-sm md:text-base text-gray-600 uppercase">Allen County Indiana</h2>
+          <h2 className="font-sans font-bold tracking-[0.2em] text-sm md:text-base text-gray-600 uppercase">Allen And Surrounding Counties</h2>
           <h2 className="font-serif font-black text-4xl md:text-5xl text-[#A02C2C] uppercase tracking-tighter mt-1">Three Rivers of Shit</h2>
         </div>
-        <h1 className="font-serif text-3xl md:text-5xl uppercase tracking-tighter">Divorce, Custody, Child Support</h1>
+        <h1 className="font-serif text-3xl md:text-5xl uppercase tracking-tighter">Local Reddit because Fuck The Corperations</h1>
         <p className="font-serif italic text-sm md:text-base mt-3 text-gray-600">
-          How the United States has destroyed its own civilization with divorce and child support wrecking family's
+          its time to take the power back
         </p>
       </header>
 
@@ -309,7 +309,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-[#E5E7EB] p-6 text-center text-xs text-[#6B7280]">
-        Dedicated to Kahler and Chad Falls
+        &copy; {new Date().getFullYear()} Local Reddit
       </footer>
     </div>
   );
