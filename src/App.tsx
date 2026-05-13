@@ -19,8 +19,22 @@ export default function App() {
   const [sortOption, setSortOption] = useState('latest');
 
   useEffect(() => {
-    fetchPosts();
-    fetchComments();
+    if (!GAS_API_URL) return;
+    
+    // Automatically setup sheets in the backend to make sure 'Comments' sheet exists
+    fetch(`${GAS_API_URL}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: "setup", token: "placeholder" })
+    }).then(() => {
+      fetchPosts();
+      fetchComments();
+    }).catch(err => {
+      console.error("Failed to run setup", err);
+      // Try fetching anyway
+      fetchPosts();
+      fetchComments();
+    });
   }, []);
 
   const fetchComments = async () => {
@@ -102,12 +116,17 @@ export default function App() {
           token: "placeholder" 
         })
       });
-      if (response.ok) {
+      const result = await response.json();
+      if (result && result.success) {
         setCommentInputs(prev => ({ ...prev, [postId]: '' }));
         fetchComments();
+      } else {
+        alert("Failed to submit comment. Please make sure your Google Apps Script is fully updated with the latest GAS_CODE.gs file and redeployed as a new version.");
+        console.error("Failed to add comment: ", result);
       }
     } catch (error) {
       console.error("Could not submit comment", error);
+      alert("Error submitting comment. Check your Google Apps Script deployment.");
     }
   };
 
