@@ -4,6 +4,10 @@
  */
 
 function doPost(e) {
+  if (!e || !e.postData) {
+     return ContentService.createTextOutput(JSON.stringify({ success: false, error: "No post data received" }))
+          .setMimeType(ContentService.MimeType.JSON);
+  }
   var content = JSON.parse(e.postData.contents);
   var action = content.action;
   
@@ -22,8 +26,15 @@ function doPost(e) {
       case 'getRecords':
         return ContentService.createTextOutput(JSON.stringify({ success: true, data: getRecords(content.sheet) }))
           .setMimeType(ContentService.MimeType.JSON);
+      case 'getComments':
+        return ContentService.createTextOutput(JSON.stringify({ success: true, data: getRecords("Comments") }))
+          .setMimeType(ContentService.MimeType.JSON);
       case 'addRecord':
         addRecord(content.sheet, content.row);
+        return ContentService.createTextOutput(JSON.stringify({ success: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      case 'addComment':
+        addRecord("Comments", { postId: content.postId, author: 'Anonymous', comment: content.comment, timestamp: new Date().toLocaleDateString() });
         return ContentService.createTextOutput(JSON.stringify({ success: true }))
           .setMimeType(ContentService.MimeType.JSON);
       case 'updateRecord':
@@ -61,6 +72,12 @@ function setupSheets() {
   if (!ss.getSheetByName("Upvotes")) {
     var sheet = ss.insertSheet("Upvotes");
     sheet.appendRow(["id", "postId", "userId"]);
+  }
+
+  // Setup Comments sheet
+  if (!ss.getSheetByName("Comments")) {
+    var sheet = ss.insertSheet("Comments");
+    sheet.appendRow(["postId", "author", "comment", "timestamp"]);
   }
 }
 

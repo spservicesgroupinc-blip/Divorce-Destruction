@@ -13,11 +13,37 @@ export default function App() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
+  const [comments, setComments] = useState({});
+  const [commentInputs, setCommentInputs] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sortOption, setSortOption] = useState('latest');
 
   useEffect(() => {
     fetchPosts();
+    fetchComments();
   }, []);
+
+  const fetchComments = async () => {
+    if (!GAS_API_URL) return;
+    try {
+      const response = await fetch(`${GAS_API_URL}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: "getComments", token: "placeholder" })
+      });
+      const result = await response.json();
+      if (result && result.success) {
+        const commentMap = {};
+        result.data.forEach(c => {
+          if (!commentMap[c.postId]) commentMap[c.postId] = [];
+          commentMap[c.postId].push(c);
+        });
+        setComments(commentMap);
+      }
+    } catch (error) {
+      console.error("Could not fetch comments", error);
+    }
+  };
 
   const fetchPosts = async () => {
     if (!GAS_API_URL) return;
@@ -62,6 +88,29 @@ export default function App() {
     }
   };
 
+  const handleCommentSubmit = async (postId) => {
+    if (!commentInputs[postId]?.trim() || !GAS_API_URL) return;
+
+    try {
+      const response = await fetch(`${GAS_API_URL}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: "addComment", 
+          postId, 
+          comment: commentInputs[postId],
+          token: "placeholder" 
+        })
+      });
+      if (response.ok) {
+        setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+        fetchComments();
+      }
+    } catch (error) {
+      console.error("Could not submit comment", error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
@@ -80,6 +129,7 @@ export default function App() {
       author: "Anonymous",
       tags: tags.trim(),
       timestamp: new Date().toLocaleDateString(),
+      createdAt: Date.now(),
       upvotes: 0
     };
 
@@ -128,6 +178,14 @@ export default function App() {
         <section className="w-full max-w-2xl">
           <h2 className="font-serif text-2xl mb-6 italic border-b border-[#E5E7EB] pb-2">Latest Testimony</h2>
           
+          <div className="mb-4">
+            <label className="text-sm font-semibold">Sort by: </label>
+            <select value={sortOption} onChange={(e) => setSortOption(e.target.value)} className="text-sm border border-[#E5E7EB] p-1 rounded">
+              <option value="latest">Latest</option>
+              <option value="oldest">Oldest</option>
+            </select>
+          </div>
+
           {!GAS_API_URL && (
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 mb-6 rounded-sm text-sm">
               <strong>Configuration Missing:</strong> You must configure <code>VITE_GAS_API_URL</code> via the Secrets panel in AI Studio for the application to function.
@@ -140,7 +198,15 @@ export default function App() {
             </div>
           )}
 
-          {posts.map((post) => (
+          {[...posts].map((post, index) => ({...post, _index: index})).sort((a, b) => {
+            const dateA = a.createdAt || Date.parse(a.timestamp) || 0;
+            const dateB = b.createdAt || Date.parse(b.timestamp) || 0;
+            
+            if (dateA !== dateB) {
+              return sortOption === 'latest' ? dateB - dateA : dateA - dateB;
+            }
+            return sortOption === 'latest' ? b._index - a._index : a._index - b._index;
+          }).map((post) => (
              <div key={post.id} className="border border-[#E5E7EB] p-6 bg-white shadow-sm mb-4">
                 <div className="flex flex-col md:flex-row md:justify-between mb-4 gap-1">
                   <h3 className="font-bold text-lg md:text-xl leading-snug break-words">{post.title}</h3>
@@ -158,7 +224,27 @@ export default function App() {
                     ))}
                   </div>
                 )}
-                <button onClick={() => handleUpvote(post.id)} className="border border-[#1A1A1A] px-6 py-2 text-sm font-bold hover:bg-[#1A1A1A] hover:text-white transition-colors">▲ ME TOO ({post.upvotes || 0})</button>
+                <button onClick={() => handleUpvote(post.id)} className="border border-[#1A1A1A] px-6 py-2 text-sm font-bold hover:bg-[#1A1A1A] hover:text-white transition-colors mb-6">▲ ME TOO ({post.upvotes || 0})</button>
+                
+                <div className="border-t border-[#E5E7EB] pt-4 mt-2">
+                  <h4 className="font-bold text-sm mb-2">Comments</h4>
+                  <div className="space-y-2 mb-4">
+                    {(comments[post.id] || []).map((c, i) => (
+                      <div key={i} className="text-sm bg-gray-50 p-2 rounded">
+                        <span className="font-semibold">{c.author}: </span>{c.comment}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      className="flex-1 border border-[#E5E7EB] p-2 text-sm"
+                      placeholder="Add a comment..."
+                      value={commentInputs[post.id] || ''}
+                      onChange={(e) => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                    />
+                    <button onClick={() => handleCommentSubmit(post.id)} className="bg-[#1A1A1A] text-white px-4 py-2 text-sm font-bold hover:bg-[#A02C2C]">Post</button>
+                  </div>
+                </div>
              </div>
           ))}
         </section>
