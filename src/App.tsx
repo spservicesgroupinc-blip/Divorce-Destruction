@@ -1,0 +1,209 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+
+// Mocking imports for now until URL is provided
+const GAS_API_URL = import.meta.env.VITE_GAS_API_URL || "";
+
+export default function App() {
+  const [posts, setPosts] = useState([]);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tags, setTags] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    if (!GAS_API_URL) return;
+    try {
+      const response = await fetch(`${GAS_API_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({ action: "getRecords", sheet: "Posts", token: "placeholder" })
+      });
+      let result;
+      try {
+        result = await response.json();
+      } catch (err) {
+        console.error("Non-JSON response from server, check GAS deployment. Error:", err);
+        return;
+      }
+      if (result && result.success) {
+        setPosts(result.data);
+      }
+    } catch (error) {
+      console.error("Could not reach the server", error);
+    }
+  };
+
+  const handleUpvote = async (postId) => {
+    if (!GAS_API_URL) return;
+    try {
+      const response = await fetch(`${GAS_API_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({ action: "upvotePost", postId, token: "placeholder" })
+      });
+      if (response.ok) {
+        fetchPosts(); // Refresh
+      }
+    } catch (error) {
+       console.error("Could not reach the server", error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) return;
+
+    setIsSubmitting(true);
+    if (!GAS_API_URL) {
+      console.warn("GAS_API_URL is not set");
+      setIsSubmitting(false);
+      return;
+    }
+    const newPost = {
+      id: crypto.randomUUID(),
+      title,
+      content,
+      category: "General",
+      author: "Anonymous",
+      tags: tags.trim(),
+      timestamp: new Date().toLocaleDateString(),
+      upvotes: 0
+    };
+
+    try {
+      const response = await fetch(`${GAS_API_URL}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({ 
+          action: "addRecord", 
+          sheet: "Posts", 
+          row: newPost,
+          token: "placeholder" 
+        })
+      });
+      if (response.ok) {
+        setTitle('');
+        setContent('');
+        setTags('');
+        fetchPosts(); // Refresh
+      }
+    } catch (error) {
+      console.error("Could not reach the server", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#FDFCFB] text-[#1A1A1A] flex flex-col font-sans">
+      <header className="border-b-4 border-[#1A1A1A] p-6 text-center relative">
+        <h1 className="font-serif text-4xl md:text-6xl uppercase tracking-tighter">Divorce, Custody, Child Support</h1>
+        <p className="font-serif italic text-sm md:text-base mt-3 text-gray-600">
+          How the United States has destroyed its own civilization with divorce and child support wrecking family's
+        </p>
+      </header>
+
+      <main className="flex-1 flex flex-col items-center p-6 gap-8">
+        <div className="flex justify-center p-4 animate-bounce">
+          <a href="#post-your-story" className="bg-[#1A1A1A] text-white py-4 px-8 text-sm md:text-base font-bold tracking-widest uppercase hover:bg-[#A02C2C] transition-colors shadow-lg">
+            Post Your Story
+          </a>
+        </div>
+        
+        <section className="w-full max-w-2xl">
+          <h2 className="font-serif text-2xl mb-6 italic border-b border-[#E5E7EB] pb-2">Latest Testimony</h2>
+          
+          {!GAS_API_URL && (
+            <div className="bg-red-50 border border-red-200 text-red-800 p-4 mb-6 rounded-sm text-sm">
+              <strong>Configuration Missing:</strong> You must configure <code>VITE_GAS_API_URL</code> via the Secrets panel in AI Studio for the application to function.
+            </div>
+          )}
+
+          {posts.length === 0 && GAS_API_URL && (
+            <div className="text-center text-[#6B7280] italic py-8">
+              No testimony submitted yet. Be the first to share your experience.
+            </div>
+          )}
+
+          {posts.map((post) => (
+             <div key={post.id} className="border border-[#E5E7EB] p-6 bg-white shadow-sm mb-4">
+                <div className="flex flex-col md:flex-row md:justify-between mb-4 gap-1">
+                  <h3 className="font-bold text-lg md:text-xl leading-snug break-words">{post.title}</h3>
+                  <span className="text-xs md:text-sm text-[#6B7280] flex-shrink-0 opacity-80">{post.timestamp}</span>
+                </div>
+                <div className="text-sm md:text-base leading-relaxed mb-6 space-y-4 text-[#374151]">
+                  {post.content ? String(post.content).split('\n').map((paragraph, index) => (
+                    paragraph.trim() ? <p key={index} className="break-words whitespace-pre-wrap">{paragraph}</p> : null
+                  )) : null}
+                </div>
+                {post.tags && (
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    {String(post.tags).split(',').map(tag => tag.trim()).filter(tag => tag !== '').map(tag => (
+                       <span key={tag} className="font-mono text-xs bg-[#F1F5F9] px-2 py-1 rounded text-[#6B7280]">{tag}</span>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => handleUpvote(post.id)} className="border border-[#1A1A1A] px-6 py-2 text-sm font-bold hover:bg-[#1A1A1A] hover:text-white transition-colors">▲ ME TOO ({post.upvotes || 0})</button>
+             </div>
+          ))}
+        </section>
+
+        <section id="post-your-story" className="w-full max-w-2xl border-t border-[#E5E7EB] pt-8">
+          <h2 className="font-serif text-2xl mb-4 italic">Post Your Experience</h2>
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <input 
+              type="text" 
+              placeholder="Title" 
+              className="border border-[#E5E7EB] p-4 text-sm md:text-base focus:outline-none focus:border-[#1A1A1A]" 
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
+            <input 
+              type="text" 
+              placeholder="Tags (comma-separated, e.g. #WillCall, #NoCounsel)" 
+              className="border border-[#E5E7EB] p-4 text-sm md:text-base focus:outline-none focus:border-[#1A1A1A]" 
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
+            <textarea 
+              placeholder="Share your experience..." 
+              className="border border-[#E5E7EB] p-4 text-sm md:text-base min-h-40 md:min-h-56 focus:outline-none focus:border-[#1A1A1A] resize-y"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              required
+            ></textarea>
+            <button 
+              type="submit" 
+              className="bg-[#1A1A1A] text-white py-4 px-6 font-bold text-sm md:text-base tracking-widest uppercase hover:bg-[#A02C2C] transition-colors disabled:opacity-50 mt-2"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Testimony'}
+            </button>
+          </form>
+        </section>
+      </main>
+
+      <footer className="border-t border-[#E5E7EB] p-6 text-center text-xs text-[#6B7280]">
+        Dedicated to Kahler and Chad Falls
+      </footer>
+    </div>
+  );
+}
+
+
